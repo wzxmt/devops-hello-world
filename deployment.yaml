@@ -25,6 +25,8 @@ spec:
       labels:
         app: PROJECT
     spec:
+      imagePullSecrets:
+      - name: docker-registry
       containers:
         - name: PROJECT
           image: REGISTRY/PROJECT:TAG
