@@ -2,8 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: httpserver
-  name: httpserver
+    app: PROJECT
+  name: PROJECT
   namespace: default
 spec:
   progressDeadlineSeconds: 600
@@ -11,7 +11,7 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: httpserver
+      app: PROJECT
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -23,21 +23,19 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "metrics"
       labels:
-        app: httpserver
+        app: PROJECT
     spec:
       containers:
-        - env:
+        - name: PROJECT
+          image: REGISTRY/PROJECT:TAG
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
             - name: TZ
               value: Asia/Shanghai
-          image: IMAGE:TAG
-          imagePullPolicy: IfNotPresent
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                  - /bin/sh
-                  - -c
-                  - sleep 15
           livenessProbe:
             failureThreshold: 3
             httpGet:
@@ -48,11 +46,6 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 3
-          name: httpserver
-          ports:
-            - containerPort: 8080
-              name: http
-              protocol: TCP
           readinessProbe:
             failureThreshold: 3
             httpGet:
@@ -63,6 +56,13 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 3
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 15
           securityContext: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
@@ -73,7 +73,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: httpserver
+  name: PROJECT
 spec:
   ports:
     - name: http
@@ -81,30 +81,23 @@ spec:
       protocol: TCP
       targetPort: http
   selector:
-    app: httpserver
+    app: PROJECT
   sessionAffinity: None
   type: ClusterIP
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
 metadata:
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: 100m
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-    nginx.ingress.kubernetes.io/service-weight: ""
-    nginx.org/client-max-body-size: 100m
-  name: httpserver
+  name: PROJECT
+  namespace: default
+  labels:
+    app: PROJECT
 spec:
-  rules:
-    - host: httpserver.coolops.cn
-      http:
-        paths:
-          - pathType: Prefix
-            path: /
-            backend:
-              service:
-                name: httpserver
-                port:
-                  number: 8080
+  entryPoints:
+    - web
+  routes:
+  - match: Host(`test01.wzxmt.com`) && PathPrefix(`/`)
+    kind: Rule
+    services:
+    - name: PROJECT
+      port: 8080
